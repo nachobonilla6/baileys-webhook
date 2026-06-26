@@ -1,0 +1,14 @@
+{
+  "name": "baileys-webhook",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@bot-whatsapp/bot": "latest",
+    "@bot-whatsapp/provider-baileys": "latest",
+    "@bot-whatsapp/database-json": "latest",
+    "axios": "^1.7.0"
+  }
+}
