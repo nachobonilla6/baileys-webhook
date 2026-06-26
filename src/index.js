@@ -1,6 +1,6 @@
 import http from 'http'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
-import pkg from 'qrcode-terminal'
+import QR from 'qrcode-terminal'
 import axios from 'axios'
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://n8n-bxsv-production.up.railway.app/webhook/whatsapp-evolution'
@@ -16,7 +16,6 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info')
     
     const sock = makeWASocket({
-        printQRInTerminal: true,
         auth: state,
     })
 
@@ -24,8 +23,8 @@ async function startBot() {
 
     sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
         if (qr) {
-            pkg.generate(qr, { small: true })
-            console.log('QR generado. Escanea con WhatsApp.')
+            QR.generate(qr, { small: true })
+            console.log('--- ESCANEA EL QR DE ARRIBA CON WHATSAPP ---')
         }
         if (connection === 'open') {
             console.log('Conectado a WhatsApp!')
