@@ -1,10 +1,7 @@
 import http from 'http'
-import pkg from '@bot-whatsapp/bot'
-import { BaileysProvider } from '@bot-whatsapp/provider-baileys'
-import { JsonFileAdapter } from '@bot-whatsapp/database-json'
+import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
+import pkg from 'qrcode-terminal'
 import axios from 'axios'
-
-const { createBot, createProvider, createFlow, addKeyword } = pkg
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://n8n-bxsv-production.up.railway.app/webhook/whatsapp-evolution'
 const PORT = parseInt(process.env.PORT || '3000')
@@ -15,29 +12,61 @@ const server = http.createServer((req, res) => {
 })
 server.listen(PORT, () => console.log(`Health check on port ${PORT}`))
 
-const main = async () => {
-    const adapterDB = new JsonFileAdapter()
-    const adapterProvider = createProvider(BaileysProvider)
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info')
+    
+    const sock = makeWASocket({
+        printQRInTerminal: true,
+        auth: state,
+    })
 
-    adapterProvider.on('message', async (message) => {
+    sock.ev.on('creds.update', saveCreds)
+
+    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+        if (qr) {
+            pkg.generate(qr, { small: true })
+            console.log('QR generado. Escanea con WhatsApp.')
+        }
+        if (connection === 'open') {
+            console.log('Conectado a WhatsApp!')
+        }
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+            if (shouldReconnect) {
+                console.log('Reconectando...')
+                startBot()
+            } else {
+                console.log('Deslogueado. Elimina auth_info y redeploy.')
+            }
+        }
+    })
+
+    sock.ev.on('messages.upsert', async (m) => {
         try {
-            if (message.key?.fromMe) return
-            const body = message.message?.conversation || 
-                         message.message?.extendedTextMessage?.text || ''
+            const msg = m.messages[0]
+            if (!msg.message || msg.key?.fromMe) return
+            
+            const body = msg.message?.conversation || 
+                         msg.message?.extendedTextMessage?.text ||
+                         msg.message?.imageMessage?.caption || ''
+            
             if (!body) return
-            const from = message.key?.remoteJid
-            console.log(`Msg from ${message.pushName} (${from}): ${body.substring(0,100)}`)
+
+            const from = msg.key?.remoteJid
+            const pushName = msg.pushName || ''
+
+            console.log(`Msg from ${pushName} (${from}): ${body.substring(0,100)}`)
+
             await axios.post(WEBHOOK_URL, {
-                from, body, name: message.pushName || '', timestamp: Date.now()
+                from,
+                body,
+                name: pushName,
+                timestamp: Date.now()
             }, { timeout: 5000 })
         } catch (e) {
             console.error('Webhook error:', e.message)
         }
     })
-
-    const flow = addKeyword(['hola']).addAnswer('¡Hola! ¿Cómo puedo ayudarte?')
-    createBot({ flow: createFlow([flow]), provider: adapterProvider, database: adapterDB })
-    console.log('Bot iniciado. Escanea el QR desde los logs.')
 }
 
-main().catch(e => console.error('Fatal:', e))
+startBot().catch(e => console.error('Fatal:', e))
