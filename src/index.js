@@ -1,8 +1,10 @@
 import http from 'http'
-import { createBot, createProvider, createFlow, addKeyword } from '@bot-whatsapp/bot'
+import pkg from '@bot-whatsapp/bot'
 import { BaileysProvider } from '@bot-whatsapp/provider-baileys'
 import { JsonFileAdapter } from '@bot-whatsapp/database-json'
 import axios from 'axios'
+
+const { createBot, createProvider, createFlow, addKeyword } = pkg
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://n8n-bxsv-production.up.railway.app/webhook/whatsapp-evolution'
 const PORT = parseInt(process.env.PORT || '3000')
