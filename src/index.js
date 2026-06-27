@@ -1,20 +1,27 @@
 import http from 'http'
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
+import { makeWASocket, DisconnectReason } from '@whiskeysockets/baileys'
 import QR from 'qrcode-terminal'
 import axios from 'axios'
+import { useMongoAuthState } from './mongoAuthState.js'
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://n8n-bxsv-production.up.railway.app/webhook/whatsapp-evolution'
 const PORT = parseInt(process.env.PORT || '3000')
+const MONGO_URL = process.env.MONGODB_URI
+
+if (!MONGO_URL) {
+    console.error('Falta la variable de entorno MONGODB_URI. Configúrala en Railway.')
+    process.exit(1)
+}
 
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' })
-  res.end('OK')
+    res.writeHead(200, { 'Content-Type': 'text/plain' })
+    res.end('OK')
 })
 server.listen(PORT, () => console.log(`Health check on port ${PORT}`))
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info')
-    
+    const { state, saveCreds } = await useMongoAuthState(MONGO_URL)
+
     const sock = makeWASocket({
         auth: state,
     })
@@ -35,7 +42,7 @@ async function startBot() {
                 console.log('Reconectando...')
                 startBot()
             } else {
-                console.log('Deslogueado. Elimina auth_info y redeploy.')
+                console.log('Deslogueado. Borra la colección "auth" en Mongo y redeploy para volver a escanear el QR.')
             }
         }
     })
@@ -44,18 +51,15 @@ async function startBot() {
         try {
             const msg = m.messages[0]
             if (!msg.message || msg.key?.fromMe) return
-            
-            const body = msg.message?.conversation || 
+
+            const body = msg.message?.conversation ||
                          msg.message?.extendedTextMessage?.text ||
                          msg.message?.imageMessage?.caption || ''
-            
-            if (!body) return
 
+            if (!body) return
             const from = msg.key?.remoteJid
             const pushName = msg.pushName || ''
-
             console.log(`Msg from ${pushName} (${from}): ${body.substring(0,100)}`)
-
             await axios.post(WEBHOOK_URL, {
                 from,
                 body,
