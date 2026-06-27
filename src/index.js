@@ -30,30 +30,25 @@ async function startBot() {
 
     sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
         if (qr) {
-            // Try pairing code first (works better on Railway)
-            const phoneNumber = process.env.PAIRING_PHONE || ''
+            const phoneNumber = process.env.PAIRING_PHONE || process.env.PHONE_NUMBER || ''
             if (phoneNumber) {
                 try {
                     const code = await sock.requestPairingCode(phoneNumber)
                     const formatted = code.match(/.{1,4}/g)?.join('-') || code
                     console.log('')
-                    console.log('╔══════════════════════════════════════╗')
-                    console.log('║       WHATSAPP PAIRING CODE         ║')
-                    console.log('║                                    ║')
-                    console.log('║        ' + formatted + '         ║')
-                    console.log('║                                    ║')
-                    console.log('║  Open WhatsApp > Linked Devices    ║')
-                    console.log('║  > Link with phone number         ║')
-                    console.log('║  Enter this code in WhatsApp      ║')
-                    console.log('╚══════════════════════════════════════╝')
+                    console.log('=== WHATSAPP PAIRING CODE ===')
+                    console.log(formatted)
+                    console.log('=== ENTER THIS IN WHATSAPP ===')
+                    console.log('Open WhatsApp > Linked Devices > Link with phone number')
                     console.log('')
                 } catch (e) {
-                    console.log('Pairing code failed, falling back to QR...')
-                    QR.generate(qr, { small: true })
+                    console.log('Pairing code failed: ' + e.message)
                 }
             } else {
-                QR.generate(qr, { small: true })
-                console.log('--- ESCANEA EL QR DE ARRIBA CON WHATSAPP ---')
+                console.log('')
+                console.log('=== QR CODE (not visible in Railway) ===')
+                console.log('Set PAIRING_PHONE env var with your WhatsApp number')
+                console.log('')
             }
         }
         if (connection === 'open') {
