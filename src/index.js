@@ -28,10 +28,33 @@ async function startBot() {
 
     sock.ev.on('creds.update', saveCreds)
 
-    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+    sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
         if (qr) {
-            QR.generate(qr, { small: true })
-            console.log('--- ESCANEA EL QR DE ARRIBA CON WHATSAPP ---')
+            // Try pairing code first (works better on Railway)
+            const phoneNumber = process.env.PAIRING_PHONE || ''
+            if (phoneNumber) {
+                try {
+                    const code = await sock.requestPairingCode(phoneNumber)
+                    const formatted = code.match(/.{1,4}/g)?.join('-') || code
+                    console.log('')
+                    console.log('╔══════════════════════════════════════╗')
+                    console.log('║       WHATSAPP PAIRING CODE         ║')
+                    console.log('║                                    ║')
+                    console.log('║        ' + formatted + '         ║')
+                    console.log('║                                    ║')
+                    console.log('║  Open WhatsApp > Linked Devices    ║')
+                    console.log('║  > Link with phone number         ║')
+                    console.log('║  Enter this code in WhatsApp      ║')
+                    console.log('╚══════════════════════════════════════╝')
+                    console.log('')
+                } catch (e) {
+                    console.log('Pairing code failed, falling back to QR...')
+                    QR.generate(qr, { small: true })
+                }
+            } else {
+                QR.generate(qr, { small: true })
+                console.log('--- ESCANEA EL QR DE ARRIBA CON WHATSAPP ---')
+            }
         }
         if (connection === 'open') {
             console.log('Conectado a WhatsApp!')
